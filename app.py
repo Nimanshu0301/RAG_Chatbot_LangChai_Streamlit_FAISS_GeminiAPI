@@ -40,7 +40,7 @@ def get_text_chunks(text, model_name):
 #embedding this chunks and storing in vector db 
 def get_vectorstore(text_chunks, model_name, api_key=None):
     if model_name == "Google AI":
-        embeddings = GoogleGenerativeAIEmbeddings(model="mode1/embedding-001", google_api_key=api_key)
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
         
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     vectorstore.save_local("faiss_index")
@@ -76,7 +76,7 @@ def user_input(user_question, model_name, api_key, pdf_docs, Conversation_histor
         user_question_output = ""
         response_output = ""
         if model_name == "Google AI":
-            embeddings = GoogleGenerativeAIEmbeddings(model="mode1/embedding-001", google_api_key=api_key)
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
             new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
             docs = new_db.similarity_search(user_question)
             chain = get_conversation_chain("Google AI", vectorstore=new_db, api_key=api_key)
@@ -138,91 +138,57 @@ def user_input(user_question, model_name, api_key, pdf_docs, Conversation_histor
         unsafe_allow_html=True
     )
 
-if len(st.session_state.conversation_history) > 0:
-        df = pd.DataFrame(st.session_state.conversation_history, columns=["Question", "Answer", "Model", "Timestamp", "PDF Name"])
-
-        # df = pd.DataFrame(st.session_state.conversation_history, columns=["Question", "Answer", "Timestamp", "PDF Name"])
-        csv = df.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()  # Convert to base64
-        href = f'<a href="data:file/csv;base64,{b64}" download="conversation_history.csv"><button>Download conversation history as CSV file</button></a>'
-        st.sidebar.markdown(href, unsafe_allow_html=True)
-        st.markdown("To download the conversation, click the Download button on the left side at the bottom of the conversation.")
-st.snow()
+# main function
 
 def main():
-    st.set_page_config(page_title="Chat with multiple PDFs", page_icon=":books:")
-    st.header("Chat with multiple PDFs (v1) :books:")
+    st.set_page_config(page_title="Chat with PDFs", page_icon="📚")
+    st.header("📚 Chat with Multiple PDFs")
 
-    if 'conversation_history' not in st.session_state:
-        st.session_state.conversation_history = []
-    linkedin_profile_link = "https://www.linkedin.com/in/snsupratim/"
-    kaggle_profile_link = "https://www.kaggle.com/snsupratim/"
-    github_profile_link = "https://github.com/snsupratim/"
+    # ✅ SESSION STATE INITIALIZATION
+    if "Conversation_history" not in st.session_state:
+        st.session_state.Conversation_history = []
 
-    st.sidebar.markdown(
-        f"[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)]({linkedin_profile_link}) "
-        f"[![Kaggle](https://img.shields.io/badge/Kaggle-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white)]({kaggle_profile_link}) "
-        f"[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)]({github_profile_link})"
-    )
-
-
-
-    model_name = st.sidebar.radio("Select the Model:", ( "Google AI"))
-
-    api_key = None
-
-    if model_name == "Google AI":
-        api_key = st.sidebar.text_input("Enter your Google API Key:")
-        st.sidebar.markdown("Click [here](https://ai.google.dev/) to get an API key.")
-        
-        if not api_key:
-            st.sidebar.warning("Please enter your Google API Key to proceed.")
-            return
-
-   
+    # ================= SIDEBAR =================
     with st.sidebar:
-        st.title("Menu:")
-        
-        col1, col2 = st.columns(2)
-        
-        reset_button = col2.button("Reset")
-        clear_button = col1.button("Rerun")
+        st.title("🔧 Settings")
 
-        if reset_button:
-            st.session_state.conversation_history = []  # Clear conversation history
-            st.session_state.user_question = None  # Clear user question input 
-            
-            
-            api_key = None  # Reset Google API key
-            pdf_docs = None  # Reset PDF document
-            
-        else:
-            if clear_button:
-                if 'user_question' in st.session_state:
-                    st.warning("The previous query will be discarded.")
-                    st.session_state.user_question = ""  # Temizle
-                    if len(st.session_state.conversation_history) > 0:
-                        st.session_state.conversation_history.pop()  # Son sorguyu kaldır
-                else:
-                    st.warning("The question in the input will be queried again.")
+        api_key = st.text_input("Google API Key", type="password")
+        st.markdown("[Get API Key](https://ai.google.dev/)")
 
+        pdf_docs = st.file_uploader(
+            "Upload PDF files",
+            accept_multiple_files=True
+        )
 
+        if st.button("Reset Conversation"):
+            st.session_state.Conversation_history = []
+            st.experimental_rerun()
 
-
-        pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
-        if st.button("Submit & Process"):
-            if pdf_docs:
-                with st.spinner("Processing..."):
-                    st.success("Done")
-            else:
-                st.warning("Please upload PDF files before processing.")
-
-    user_question = st.text_input("Ask a Question from the PDF Files")
+    # ================= CHAT =================
+    user_question = st.text_input("Ask a question from the PDFs")
 
     if user_question:
-        user_input(user_question, model_name, api_key, pdf_docs, st.session_state.conversation_history)
-        st.session_state.user_question = ""  # Clear user question input 
+        user_input(user_question, api_key, pdf_docs)
+
+    # ================= DOWNLOAD HISTORY =================
+    if st.session_state.Conversation_history:
+        df = pd.DataFrame(
+            st.session_state.Conversation_history,
+            columns=["Question", "Answer", "Model", "Timestamp", "PDFs"]
+        )
+
+        csv = df.to_csv(index=False)
+        b64 = base64.b64encode(csv.encode()).decode()
+
+        st.sidebar.markdown(
+            f'<a href="data:file/csv;base64,{b64}" download="Conversation_history.csv">'
+            f'<button>⬇️ Download History</button></a>',
+            unsafe_allow_html=True
+        )
+
+    st.snow()
+
+# ===================== RUN =====================
 
 if __name__ == "__main__":
-    main()     
-    
+    main()
