@@ -32,7 +32,7 @@ def get_text_chunks(text, model_name):
         
         text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
-        chunk_overlap=1000
+        chunk_overlap=200
     )
     chunks = text_splitter.split_text(text)
     return chunks
@@ -167,8 +167,16 @@ def main():
     # ================= CHAT =================
     user_question = st.text_input("Ask a question from the PDFs")
 
+    # if user_question:
+    #     user_input(user_question, api_key, pdf_docs)
     if user_question:
-        user_input(user_question, api_key, pdf_docs)
+        user_input(
+            user_question=user_question,
+            model_name="Google AI",
+            api_key=api_key,
+            pdf_docs=pdf_docs,
+            Conversation_history=st.session_state.Conversation_history
+    )
 
     # ================= DOWNLOAD HISTORY =================
     if st.session_state.Conversation_history:
